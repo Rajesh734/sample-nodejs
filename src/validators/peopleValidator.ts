@@ -40,10 +40,10 @@ export const CreateContributionSchema = z.object({
       return data.amount !== null && data.amount !== undefined && data.currencyCode !== null && data.currencyCode !== undefined;
     }
     if (data.mode === 'GOLD' || data.mode === 'SILVER') {
-      return data.itemQuantity !== null && data.itemQuantity !== undefined && data.amount === null && data.amount === undefined;
+      return (data.itemQuantity != null) && (data.amount == null);
     }
     if (data.mode === 'ITEM') {
-      return data.itemType && data.itemQuantity !== null && data.itemQuantity !== undefined && data.amount === null && data.amount === undefined;
+      return !!(data.itemType) && (data.itemQuantity != null) && (data.amount == null);
     }
     return true;
   },

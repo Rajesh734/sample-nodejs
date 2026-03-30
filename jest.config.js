@@ -3,6 +3,8 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
   testMatch: ['**/?(*.)+(spec|test).ts?(x)'],
+  testPathIgnorePatterns: ['<rootDir>/tests/docker-integration.test.ts'],
+  clearMocks: true,
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   collectCoverageFrom: [
     'src/**/*.ts',

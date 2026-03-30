@@ -78,6 +78,9 @@ export const googleLogin = catchAsync(async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
+    if (error instanceof AppError) {
+      throw error;
+    }
     logger.error(`Google login error: ${error.message}`);
     throw new AppError(401, 'Google authentication failed');
   }
@@ -154,6 +157,9 @@ export const appleLogin = catchAsync(async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
+    if (error instanceof AppError) {
+      throw error;
+    }
     logger.error(`Apple login error: ${error.message}`);
     throw new AppError(401, 'Apple authentication failed');
   }
@@ -161,29 +167,20 @@ export const appleLogin = catchAsync(async (req: Request, res: Response) => {
 
 /**
  * GET /auth/verify
- * Verify current JWT token
+ * Verify current JWT token — returns user info from the validated token payload.
+ * Signature validation is already performed by the auth middleware.
  */
 export const verifyToken = catchAsync(async (req: Request, res: Response) => {
   if (!req.user) {
     throw new AppError(401, 'No authenticated user');
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: req.user.userId },
-  });
-
-  if (!user) {
-    throw new AppError(404, 'User not found');
-  }
-
   res.status(200).json({
     success: true,
     user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      provider: user.provider,
-      role: user.role,
+      id: req.user.userId,
+      email: req.user.email,
+      role: req.user.role,
     },
   });
 });

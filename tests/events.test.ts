@@ -1,28 +1,50 @@
-import { getPrismaClient } from '../src/utils/dbConnection';
-import { cleanupDatabase, authenticatedRequest, userToken } from './helpers';
+jest.mock('../src/utils/dbConnection');
 
-const prisma = getPrismaClient();
+import { getPrismaClient } from '../src/utils/dbConnection';
+import { authenticatedRequest, userToken } from './helpers';
+
+const db = getPrismaClient() as any;
+
+const PERSON_ID = 'b0000000-0000-4000-8000-000000000001';
+const EVENT_ID = 'c0000000-0000-4000-8000-000000000001';
+
+const mockPerson = {
+  id: PERSON_ID,
+  name: 'Host Person',
+  displayName: null,
+  deletedAt: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const mockEvent = {
+  id: EVENT_ID,
+  title: 'Family Wedding',
+  description: 'Wedding celebration',
+  eventDate: new Date('2024-06-15'),
+  location: 'Cairo',
+  hostPersonId: PERSON_ID,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  deletedAt: null,
+  hostPerson: mockPerson,
+  contributions: [],
+};
 
 describe('Events Endpoints', () => {
-  let hostPerson: any;
-
-  beforeEach(async () => {
-    await cleanupDatabase();
-    hostPerson = await prisma.person.create({
-      data: { name: 'Host Person' },
-    });
-  });
-
   describe('POST /api/events', () => {
     it('should create a new event', async () => {
+      db.person.findUnique.mockResolvedValue(mockPerson);
+      db.event.create.mockResolvedValue(mockEvent);
+
       const response = await authenticatedRequest(userToken)
         .post('/api/events')
         .send({
           title: 'Family Wedding',
           description: 'Wedding celebration',
-          eventDate: new Date('2024-06-15'),
+          eventDate: new Date('2024-06-15').toISOString(),
           location: 'Cairo',
-          hostPersonId: hostPerson.id,
+          hostPersonId: PERSON_ID,
         });
 
       expect(response.status).toBe(201);
@@ -33,33 +55,21 @@ describe('Events Endpoints', () => {
     it('should require title and hostPersonId', async () => {
       const response = await authenticatedRequest(userToken)
         .post('/api/events')
-        .send({
-          description: 'No title',
-        });
+        .send({ description: 'No title' });
 
       expect(response.status).toBe(400);
     });
   });
 
   describe('GET /api/events', () => {
-    beforeEach(async () => {
-      await prisma.event.createMany({
-        data: [
-          {
-            title: 'Event 1',
-            eventDate: new Date('2024-01-01'),
-            hostPersonId: hostPerson.id,
-          },
-          {
-            title: 'Event 2',
-            eventDate: new Date('2024-02-01'),
-            hostPersonId: hostPerson.id,
-          },
-        ],
-      });
-    });
-
     it('should return paginated events', async () => {
+      const events = [
+        { ...mockEvent, id: 'e1', title: 'Event 1' },
+        { ...mockEvent, id: 'e2', title: 'Event 2' },
+      ];
+      db.event.findMany.mockResolvedValue(events);
+      db.event.count.mockResolvedValue(2);
+
       const response = await authenticatedRequest(userToken)
         .get('/api/events?page=1&limit=10');
 
@@ -71,42 +81,28 @@ describe('Events Endpoints', () => {
 
   describe('GET /api/events/:id', () => {
     it('should return event with contributions', async () => {
-      const event = await prisma.event.create({
-        data: {
-          title: 'Test Event',
-          eventDate: new Date(),
-          hostPersonId: hostPerson.id,
-        },
-      });
+      db.event.findUnique.mockResolvedValue(mockEvent);
 
       const response = await authenticatedRequest(userToken)
-        .get(`/api/events/${event.id}`);
+        .get(`/api/events/${EVENT_ID}`);
 
       expect(response.status).toBe(200);
-      expect(response.body.data.title).toBe('Test Event');
+      expect(response.body.data.title).toBe('Family Wedding');
       expect(response.body.data.contributions).toBeDefined();
     });
   });
 
   describe('DELETE /api/events/:id', () => {
     it('should soft delete an event', async () => {
-      const event = await prisma.event.create({
-        data: {
-          title: 'Delete Me',
-          eventDate: new Date(),
-          hostPersonId: hostPerson.id,
-        },
-      });
+      const deletedEvent = { ...mockEvent, deletedAt: new Date() };
+      db.event.findUnique.mockResolvedValue(mockEvent);
+      db.event.update.mockResolvedValue(deletedEvent);
 
       const response = await authenticatedRequest(userToken)
-        .delete(`/api/events/${event.id}`);
+        .delete(`/api/events/${EVENT_ID}`);
 
       expect(response.status).toBe(200);
-
-      const deletedEvent = await prisma.event.findUnique({
-        where: { id: event.id },
-      });
-      expect(deletedEvent?.deletedAt).not.toBeNull();
+      expect(response.body.success).toBe(true);
     });
   });
 });

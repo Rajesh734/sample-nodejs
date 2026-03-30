@@ -1,9 +1,9 @@
+jest.mock('../src/utils/dbConnection');
+
 import request from 'supertest';
 import app from '../src/app';
-import { getPrismaClient, disconnectPrisma } from '../src/utils/dbConnection';
+import { disconnectPrisma } from '../src/utils/dbConnection';
 import { generateToken } from '../src/utils/authUtils';
-
-const prisma = getPrismaClient();
 
 // Test user tokens
 export const adminToken = generateToken('admin-user-id', 'admin@test.com', 'ADMIN');
@@ -13,23 +13,14 @@ export const api = request(app);
 
 // Helper to make authenticated requests
 export const authenticatedRequest = (token: string) => {
-  return request(app).set('Authorization', `Bearer ${token}`);
-};
-
-// Cleanup function
-export const cleanupDatabase = async () => {
-  try {
-    // Delete in order of dependencies
-    await prisma.contribution.deleteMany();
-    await prisma.event.deleteMany();
-    await prisma.person.deleteMany();
-    await prisma.user.deleteMany();
-  } catch (error) {
-    console.error('Cleanup error:', error);
+  const agent = request.agent(app);
+  if (token) {
+    agent.set('Authorization', `Bearer ${token}`);
   }
+  return agent;
 };
 
-// Disconnect after all tests
+// Disconnect after all tests (no-op when DB is mocked)
 afterAll(async () => {
   await disconnectPrisma();
 });

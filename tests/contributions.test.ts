@@ -1,46 +1,61 @@
-import { Decimal } from '@prisma/client/runtime/library';
-import { getPrismaClient } from '../src/utils/dbConnection';
-import { cleanupDatabase, authenticatedRequest, userToken } from './helpers';
+jest.mock('../src/utils/dbConnection');
 
-const prisma = getPrismaClient();
+import { getPrismaClient } from '../src/utils/dbConnection';
+import { authenticatedRequest, userToken } from './helpers';
+
+const db = getPrismaClient() as any;
+
+const FROM_ID = 'd0000000-0000-4000-8000-000000000001';
+const TO_ID = 'd0000000-0000-4000-8000-000000000002';
+const EVENT_ID = 'e0000000-0000-4000-8000-000000000001';
+
+const mockFromPerson = { id: FROM_ID, name: 'From Person', deletedAt: null };
+const mockToPerson = { id: TO_ID, name: 'To Person', deletedAt: null };
+const mockEvent = { id: EVENT_ID, title: 'Test Event', deletedAt: null };
+
+const buildContribution = (overrides: Record<string, unknown> = {}) => ({
+  id: 'contrib-0000-0000-0000-000000000001',
+  eventId: EVENT_ID,
+  fromPersonId: FROM_ID,
+  toPersonId: TO_ID,
+  type: 'GAVE',
+  mode: 'CASH',
+  amount: '500.00',
+  currencyCode: 'EGP',
+  itemType: null,
+  itemQuantity: null,
+  notes: null,
+  contributionDate: new Date(),
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  deletedAt: null,
+  event: mockEvent,
+  fromPerson: mockFromPerson,
+  toPerson: mockToPerson,
+  ...overrides,
+});
 
 describe('Contributions Endpoints', () => {
-  let fromPerson: any;
-  let toPerson: any;
-  let event: any;
-
-  beforeEach(async () => {
-    await cleanupDatabase();
-    
-    fromPerson = await prisma.person.create({
-      data: { name: 'From Person' },
-    });
-    
-    toPerson = await prisma.person.create({
-      data: { name: 'To Person' },
-    });
-
-    const hostPerson = await prisma.person.create({
-      data: { name: 'Host Person' },
-    });
-
-    event = await prisma.event.create({
-      data: {
-        title: 'Test Event',
-        eventDate: new Date(),
-        hostPersonId: hostPerson.id,
-      },
-    });
-  });
+  /** Set up common mock DB responses for all tests that need existing FK records */
+  const setupFkMocks = () => {
+    db.event.findUnique.mockResolvedValue(mockEvent);
+    db.person.findUnique
+      .mockResolvedValueOnce(mockFromPerson)
+      .mockResolvedValueOnce(mockToPerson);
+  };
 
   describe('POST /api/contributions - CASH mode', () => {
     it('should create CASH contribution', async () => {
+      setupFkMocks();
+      const contribution = buildContribution({ mode: 'CASH' });
+      db.contribution.create.mockResolvedValue(contribution);
+
       const response = await authenticatedRequest(userToken)
         .post('/api/contributions')
         .send({
-          eventId: event.id,
-          fromPersonId: fromPerson.id,
-          toPersonId: toPerson.id,
+          eventId: EVENT_ID,
+          fromPersonId: FROM_ID,
+          toPersonId: TO_ID,
           type: 'GAVE',
           mode: 'CASH',
           amount: 500,
@@ -57,9 +72,9 @@ describe('Contributions Endpoints', () => {
       const response = await authenticatedRequest(userToken)
         .post('/api/contributions')
         .send({
-          eventId: event.id,
-          fromPersonId: fromPerson.id,
-          toPersonId: toPerson.id,
+          eventId: EVENT_ID,
+          fromPersonId: FROM_ID,
+          toPersonId: TO_ID,
           type: 'GAVE',
           mode: 'CASH',
           currencyCode: 'EGP',
@@ -71,12 +86,16 @@ describe('Contributions Endpoints', () => {
 
   describe('POST /api/contributions - GOLD/SILVER mode', () => {
     it('should create GOLD contribution', async () => {
+      setupFkMocks();
+      const contribution = buildContribution({ mode: 'GOLD', amount: null, currencyCode: null, itemQuantity: 25 });
+      db.contribution.create.mockResolvedValue(contribution);
+
       const response = await authenticatedRequest(userToken)
         .post('/api/contributions')
         .send({
-          eventId: event.id,
-          fromPersonId: fromPerson.id,
-          toPersonId: toPerson.id,
+          eventId: EVENT_ID,
+          fromPersonId: FROM_ID,
+          toPersonId: TO_ID,
           type: 'GAVE',
           mode: 'GOLD',
           itemQuantity: 25,
@@ -91,9 +110,9 @@ describe('Contributions Endpoints', () => {
       const response = await authenticatedRequest(userToken)
         .post('/api/contributions')
         .send({
-          eventId: event.id,
-          fromPersonId: fromPerson.id,
-          toPersonId: toPerson.id,
+          eventId: EVENT_ID,
+          fromPersonId: FROM_ID,
+          toPersonId: TO_ID,
           type: 'GAVE',
           mode: 'GOLD',
           itemQuantity: 25,
@@ -106,12 +125,16 @@ describe('Contributions Endpoints', () => {
 
   describe('POST /api/contributions - ITEM mode', () => {
     it('should create ITEM contribution', async () => {
+      setupFkMocks();
+      const contribution = buildContribution({ mode: 'ITEM', amount: null, currencyCode: null, itemType: 'China Set', itemQuantity: 1 });
+      db.contribution.create.mockResolvedValue(contribution);
+
       const response = await authenticatedRequest(userToken)
         .post('/api/contributions')
         .send({
-          eventId: event.id,
-          fromPersonId: fromPerson.id,
-          toPersonId: toPerson.id,
+          eventId: EVENT_ID,
+          fromPersonId: FROM_ID,
+          toPersonId: TO_ID,
           type: 'GAVE',
           mode: 'ITEM',
           itemType: 'China Set',
@@ -127,9 +150,9 @@ describe('Contributions Endpoints', () => {
       const response = await authenticatedRequest(userToken)
         .post('/api/contributions')
         .send({
-          eventId: event.id,
-          fromPersonId: fromPerson.id,
-          toPersonId: toPerson.id,
+          eventId: EVENT_ID,
+          fromPersonId: FROM_ID,
+          toPersonId: TO_ID,
           type: 'GAVE',
           mode: 'ITEM',
           itemQuantity: 1,
@@ -140,21 +163,10 @@ describe('Contributions Endpoints', () => {
   });
 
   describe('GET /api/contributions', () => {
-    beforeEach(async () => {
-      await prisma.contribution.create({
-        data: {
-          eventId: event.id,
-          fromPersonId: fromPerson.id,
-          toPersonId: toPerson.id,
-          type: 'GAVE',
-          mode: 'CASH',
-          amount: new Decimal('500'),
-          currencyCode: 'EGP',
-        },
-      });
-    });
-
     it('should list contributions', async () => {
+      db.contribution.findMany.mockResolvedValue([buildContribution()]);
+      db.contribution.count.mockResolvedValue(1);
+
       const response = await authenticatedRequest(userToken)
         .get('/api/contributions');
 
@@ -165,20 +177,12 @@ describe('Contributions Endpoints', () => {
 
   describe('GET /api/contributions/person/:personId', () => {
     it('should return person contributions', async () => {
-      await prisma.contribution.create({
-        data: {
-          eventId: event.id,
-          fromPersonId: fromPerson.id,
-          toPersonId: toPerson.id,
-          type: 'GAVE',
-          mode: 'CASH',
-          amount: new Decimal('500'),
-          currencyCode: 'EGP',
-        },
-      });
+      db.person.findUnique.mockResolvedValue(mockFromPerson);
+      db.contribution.findMany.mockResolvedValue([buildContribution()]);
+      db.contribution.count.mockResolvedValue(1);
 
       const response = await authenticatedRequest(userToken)
-        .get(`/api/contributions/person/${fromPerson.id}`);
+        .get(`/api/contributions/person/${FROM_ID}`);
 
       expect(response.status).toBe(200);
       expect(response.body.data.length).toBeGreaterThan(0);
