@@ -40,7 +40,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
           # Change this to the actual path of your lock file
-          cache-dependency-path: 'sample-nodejs/package-lock.json'
+          cache-dependency-path: 'package-lock.json'
 
       - name: Install dependencies
         run: npm ci
