@@ -1,0 +1,117 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum ContributionType {
+  GAVE
+  RECEIVED
+}
+
+enum ContributionMode {
+  CASH
+  GOLD
+  SILVER
+  ITEM
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String?
+  name          String?
+  provider      String?  // 'GOOGLE', 'APPLE', or null for password-based
+  providerId    String?  // Google 'sub' or Apple 'user_id'
+  role          UserRole @default(USER)
+  verified      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  @@index([email])
+  @@index([providerId])
+  @@index([deletedAt])
+}
+
+model Person {
+  id          String   @id @default(uuid())
+  name        String
+  displayName String?
+  fatherName  String?
+  phone       String?
+  homeTown    String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  hostedEvents     Event[]        @relation("HostedEvents")
+  contributionsFrom Contribution[] @relation("FromPerson")
+  contributionsTo   Contribution[] @relation("ToPerson")
+
+  @@index([deletedAt])
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  eventDate   DateTime
+  location    String?
+  hostPersonId String
+  hostPerson  Person   @relation("HostedEvents", fields: [hostPersonId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  contributions Contribution[]
+
+  @@index([hostPersonId])
+  @@index([deletedAt])
+}
+
+model Contribution {
+  id               String            @id @default(uuid())
+  eventId          String
+  event            Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  fromPersonId     String
+  fromPerson       Person            @relation("FromPerson", fields: [fromPersonId], references: [id], onDelete: Cascade)
+  toPersonId       String
+  toPerson         Person            @relation("ToPerson", fields: [toPersonId], references: [id], onDelete: Cascade)
+  type             ContributionType
+  mode             ContributionMode
+  
+  // CASH mode fields
+  amount           Decimal?
+  currencyCode     String?
+  
+  // ITEM, GOLD, SILVER mode fields
+  itemType         String?
+  itemQuantity     Int?
+  
+  notes            String?
+  contributionDate DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  deletedAt        DateTime?
+
+  @@index([eventId])
+  @@index([fromPersonId])
+  @@index([toPersonId])
+  @@index([deletedAt])
+}
+
+// Balance view will be created via raw SQL migration
+// The view shows person_id and balance (RECEIVED - GAVE in CASH)

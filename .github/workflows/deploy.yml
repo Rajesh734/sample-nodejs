@@ -1,0 +1,138 @@
+name: Deploy to Synology NAS
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/moi-app
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set deployment variables
+        id: deploy_vars
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            echo "NAS_HOST=${{ secrets.NAS_HOST }}" >> $GITHUB_ENV
+            echo "NAS_USER=${{ secrets.NAS_USER }}" >> $GITHUB_ENV
+            echo "NAS_SSH_KEY=${{ secrets.NAS_SSH_KEY }}" >> $GITHUB_ENV
+            echo "DEPLOY_PATH=/volume1/docker/moi" >> $GITHUB_ENV
+          else
+            echo "NAS_HOST=${{ secrets.NAS_HOST_STAGING }}" >> $GITHUB_ENV
+            echo "NAS_USER=${{ secrets.NAS_USER_STAGING }}" >> $GITHUB_ENV
+            echo "NAS_SSH_KEY=${{ secrets.NAS_SSH_KEY_STAGING }}" >> $GITHUB_ENV
+            echo "DEPLOY_PATH=/volume1/docker/moi-staging" >> $GITHUB_ENV
+          fi
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ env.NAS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.NAS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Pull latest image
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} \
+            "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+
+      - name: Deploy services
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
+            cd ${{ env.DEPLOY_PATH }}
+            
+            # Backup current docker-compose
+            cp docker-compose.yml docker-compose.yml.backup
+            
+            # Stop current services
+            docker-compose down || true
+            
+            # Update image in docker-compose
+            sed -i 's|image: ghcr.io.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest|' docker-compose.yml
+            
+            # Start new services
+            docker-compose up -d
+            
+            # Wait for services to be healthy
+            sleep 10
+          EOF
+
+      - name: Verify health check
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
+            # Give services time to start
+            sleep 5
+            
+            # Check health
+            RESPONSE=$(curl -s http://localhost:3000/api/health || echo '{"status":"error"}')
+            echo "Health check response: $RESPONSE"
+            
+            # Verify response contains 'ok'
+            if echo "$RESPONSE" | grep -q '"status":"ok"'; then
+              echo "✅ Health check passed"
+              exit 0
+            else
+              echo "❌ Health check failed"
+              exit 1
+            fi
+          EOF
+
+      - name: Check logs
+        if: failure()
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
+            cd ${{ env.DEPLOY_PATH }}
+            echo "=== Docker Compose Status ==="
+            docker-compose ps
+            echo ""
+            echo "=== Recent Logs ==="
+            docker-compose logs -n 20 backend || true
+            echo ""
+            echo "=== Database Logs ==="
+            docker-compose logs -n 10 postgres || true
+          EOF
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
+            cd ${{ env.DEPLOY_PATH }}
+            echo "Rolling back to previous version..."
+            docker-compose down || true
+            mv docker-compose.yml.backup docker-compose.yml
+            docker-compose up -d
+            sleep 10
+            docker-compose ps
+          EOF
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f ~/.ssh/id_rsa
+          ssh-keygen -R ${{ env.NAS_HOST }} 2>/dev/null || true
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ Deployment successful to ${{ github.event.inputs.environment }}"
+          else
+            echo "❌ Deployment failed to ${{ github.event.inputs.environment }}"
+          fi
