@@ -112,11 +112,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      
+      - name: Prepare Lowercase Image Name
+        run: |
+          echo "IMAGE_NAME_LC=$(echo ${{ env.IMAGE_NAME }} | tr '[:upper:]' '[:lower:]')" >> ${GITHUB_ENV}
+          echo "REGISTRY_LC=$(echo ${{ env.REGISTRY }} | tr '[:upper:]' '[:lower:]')" >> ${GITHUB_ENV}
 
       - name: Pull and test Docker image
         run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          docker run --rm --entrypoint sh ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest -c "node -v && npm list"
+          # Use $REGISTRY_LC instead of ${{ env.REGISTRY_LC }}
+          docker pull $REGISTRY_LC/$IMAGE_NAME_LC:latest
+          docker run --rm --entrypoint sh $REGISTRY_LC/$IMAGE_NAME_LC:latest -c "node -v && npm list"
 
       - name: Summary
         run: |
