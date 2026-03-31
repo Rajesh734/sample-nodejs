@@ -90,6 +90,107 @@ describe('Events Endpoints', () => {
       expect(response.body.data.title).toBe('Family Wedding');
       expect(response.body.data.contributions).toBeDefined();
     });
+
+    it('should return 404 for non-existent event', async () => {
+      db.event.findUnique.mockResolvedValue(null);
+
+      const response = await authenticatedRequest(userToken)
+        .get(`/api/events/${EVENT_ID}`);
+
+      expect(response.status).toBe(404);
+    });
+
+    it('should return 404 for soft-deleted event', async () => {
+      db.event.findUnique.mockResolvedValue({ ...mockEvent, deletedAt: new Date() });
+
+      const response = await authenticatedRequest(userToken)
+        .get(`/api/events/${EVENT_ID}`);
+
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe('POST /api/events - validation', () => {
+    it('should return 404 when host person does not exist', async () => {
+      db.person.findUnique.mockResolvedValue(null);
+
+      const response = await authenticatedRequest(userToken)
+        .post('/api/events')
+        .send({
+          title: 'New Event',
+          eventDate: new Date('2024-06-15').toISOString(),
+          hostPersonId: PERSON_ID,
+        });
+
+      expect(response.status).toBe(404);
+    });
+
+    it('should return 404 when host person is soft-deleted', async () => {
+      db.person.findUnique.mockResolvedValue({ ...mockPerson, deletedAt: new Date() });
+
+      const response = await authenticatedRequest(userToken)
+        .post('/api/events')
+        .send({
+          title: 'New Event',
+          eventDate: new Date('2024-06-15').toISOString(),
+          hostPersonId: PERSON_ID,
+        });
+
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe('PUT /api/events/:id', () => {
+    it('should update an event', async () => {
+      const updatedEvent = { ...mockEvent, title: 'Updated Wedding' };
+      db.event.findUnique.mockResolvedValue(mockEvent);
+      db.event.update.mockResolvedValue(updatedEvent);
+
+      const response = await authenticatedRequest(userToken)
+        .put(`/api/events/${EVENT_ID}`)
+        .send({ title: 'Updated Wedding' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+
+    it('should return 404 when updating non-existent event', async () => {
+      db.event.findUnique.mockResolvedValue(null);
+
+      const response = await authenticatedRequest(userToken)
+        .put(`/api/events/${EVENT_ID}`)
+        .send({ title: 'Updated Wedding' });
+
+      expect(response.status).toBe(404);
+    });
+
+    it('should update event with new host person', async () => {
+      const newHostId = 'b0000000-0000-4000-8000-000000000002';
+      const newHost = { ...mockPerson, id: newHostId };
+      const updatedEvent = { ...mockEvent, hostPersonId: newHostId };
+
+      db.event.findUnique.mockResolvedValue(mockEvent);
+      db.person.findUnique.mockResolvedValue(newHost);
+      db.event.update.mockResolvedValue(updatedEvent);
+
+      const response = await authenticatedRequest(userToken)
+        .put(`/api/events/${EVENT_ID}`)
+        .send({ hostPersonId: newHostId });
+
+      expect(response.status).toBe(200);
+    });
+
+    it('should return 404 when new host person does not exist', async () => {
+      const newHostId = 'b0000000-0000-4000-8000-000000000002';
+      db.event.findUnique.mockResolvedValue(mockEvent);
+      db.person.findUnique.mockResolvedValue(null);
+
+      const response = await authenticatedRequest(userToken)
+        .put(`/api/events/${EVENT_ID}`)
+        .send({ hostPersonId: newHostId });
+
+      expect(response.status).toBe(404);
+    });
   });
 
   describe('DELETE /api/events/:id', () => {
@@ -105,4 +206,5 @@ describe('Events Endpoints', () => {
       expect(response.body.success).toBe(true);
     });
   });
+
 });

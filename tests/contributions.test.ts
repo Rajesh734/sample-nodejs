@@ -175,6 +175,87 @@ describe('Contributions Endpoints', () => {
     });
   });
 
+  describe('GET /api/contributions/:id', () => {
+    it('should return contribution by id', async () => {
+      const contribution = buildContribution();
+      db.contribution.findUnique.mockResolvedValue(contribution);
+
+      const response = await authenticatedRequest(userToken)
+        .get('/api/contributions/f0000000-0000-4000-8000-000000000001');
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+
+    it('should return 404 for non-existent contribution', async () => {
+      db.contribution.findUnique.mockResolvedValue(null);
+
+      const response = await authenticatedRequest(userToken)
+        .get('/api/contributions/f0000000-0000-4000-8000-000000000001');
+
+      expect(response.status).toBe(404);
+    });
+
+    it('should return 404 for soft-deleted contribution', async () => {
+      db.contribution.findUnique.mockResolvedValue(buildContribution({ deletedAt: new Date() }));
+
+      const response = await authenticatedRequest(userToken)
+        .get('/api/contributions/f0000000-0000-4000-8000-000000000001');
+
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe('PUT /api/contributions/:id', () => {
+    it('should update a CASH contribution', async () => {
+      const existing = buildContribution({ mode: 'CASH' });
+      const updated = buildContribution({ mode: 'CASH', amount: '750.00' });
+      db.contribution.findUnique.mockResolvedValue(existing);
+      db.contribution.update.mockResolvedValue(updated);
+
+      const response = await authenticatedRequest(userToken)
+        .put('/api/contributions/f0000000-0000-4000-8000-000000000001')
+        .send({ amount: 750, currencyCode: 'EGP', mode: 'CASH', type: 'GAVE' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+
+    it('should return 404 when updating non-existent contribution', async () => {
+      db.contribution.findUnique.mockResolvedValue(null);
+
+      const response = await authenticatedRequest(userToken)
+        .put('/api/contributions/f0000000-0000-4000-8000-000000000001')
+        .send({ notes: 'Updated note' });
+
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe('DELETE /api/contributions/:id', () => {
+    it('should soft delete a contribution', async () => {
+      const existing = buildContribution();
+      const deleted = buildContribution({ deletedAt: new Date() });
+      db.contribution.findUnique.mockResolvedValue(existing);
+      db.contribution.update.mockResolvedValue(deleted);
+
+      const response = await authenticatedRequest(userToken)
+        .delete('/api/contributions/f0000000-0000-4000-8000-000000000001');
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+
+    it('should return 404 when deleting non-existent contribution', async () => {
+      db.contribution.findUnique.mockResolvedValue(null);
+
+      const response = await authenticatedRequest(userToken)
+        .delete('/api/contributions/f0000000-0000-4000-8000-000000000001');
+
+      expect(response.status).toBe(404);
+    });
+  });
+
   describe('GET /api/contributions/person/:personId', () => {
     it('should return person contributions', async () => {
       db.person.findUnique.mockResolvedValue(mockFromPerson);
@@ -186,6 +267,17 @@ describe('Contributions Endpoints', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.data.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('GET /api/contributions/person/:personId - error case', () => {
+    it('should return 404 when person does not exist', async () => {
+      db.person.findUnique.mockResolvedValue(null);
+
+      const response = await authenticatedRequest(userToken)
+        .get(`/api/contributions/person/${FROM_ID}`);
+
+      expect(response.status).toBe(404);
     });
   });
 });
