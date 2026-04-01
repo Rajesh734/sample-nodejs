@@ -45,6 +45,7 @@ jobs:
           # 3. Map Secrets (Handle multi-line SSH Key correctly)
           echo "NAS_HOST=${{ secrets.NAS_HOST }}" >> $GITHUB_ENV
           echo "NAS_USER=${{ secrets.NAS_USER }}" >> $GITHUB_ENV
+          echo "NAS_PORT=${{ secrets.NAS_PORT }}" >> $GITHUB_ENV
           
           # This is the special syntax for multi-line variables
           echo "NAS_SSH_KEY<<EOF" >> $GITHUB_ENV
@@ -63,31 +64,31 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ env.NAS_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ env.NAS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          # Add the -p flag here
+          ssh-keyscan -p ${{ env.NAS_PORT }} -H ${{ env.NAS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Pull latest image
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} \
-            "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          # Note: Using IMAGE_NAME_LC (lowercase) and IMAGE_TAG (version)
+          ssh -p ${{ env.NAS_PORT }} -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} \
+            "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }}"
 
       - name: Deploy services
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
+          ssh -p ${{ env.NAS_PORT }} -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
             cd ${{ env.DEPLOY_PATH }}
             
-            # Backup current docker-compose
+            # Backup
             cp docker-compose.yml docker-compose.yml.backup
             
             # Stop current services
             docker-compose down || true
             
-            # Update image in docker-compose
-            sed -i 's|image: ghcr.io.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest|' docker-compose.yml
+            # Update image using lowercase variable and the selected tag
+            sed -i "s|image: ghcr.io.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }}|" docker-compose.yml
             
-            # Start new services
+            # Start
             docker-compose up -d
-            
-            # Wait for services to be healthy
             sleep 10
           EOF
 
