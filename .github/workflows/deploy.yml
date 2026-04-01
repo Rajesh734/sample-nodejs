@@ -85,6 +85,14 @@ jobs:
             ${{ env.NAS_USER }}@${{ env.NAS_HOST }} \
             "/usr/local/bin/docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }}"
 
+      - name: Debug NAS Path
+        run: |
+          ssh -p ${{ env.NAS_PORT }} -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            ${{ env.NAS_USER }}@${{ env.NAS_HOST }} \
+            "ls -d /volume*/platform/docker/non-prod/moi 2>/dev/null || echo 'Path not found on any volume'"
+            
       - name: Deploy services
         run: |
           ssh -p ${{ env.NAS_PORT }} -i ~/.ssh/id_rsa \
