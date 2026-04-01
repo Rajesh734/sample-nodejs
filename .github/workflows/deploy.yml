@@ -118,7 +118,13 @@ jobs:
             
             # 1. Update the image tag in the file we just SCP'd
             # We use the variable passed from the GitHub Env
+            # Use | as a delimiter to avoid issues with special characters in passwords
             sed -i "s|image: ghcr.io.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }}|" docker-compose.yml
+            sed -i "s|\${DB_HOST}|${{ env.DB_HOST }}|g" docker-compose.yml
+            sed -i "s|\${DB_PORT}|${{ env.DB_PORT }}|g" docker-compose.yml
+            sed -i "s|\${DB_USER}|${{ env.DB_USER }}|g" docker-compose.yml
+            sed -i "s|\${DB_PASSWORD}|${{ env.DB_PASSWORD }}|g" docker-compose.yml
+            sed -i "s|\${DB_NAME}|${{ env.DB_NAME }}|g" docker-compose.yml
             
             # 2. Pull the specific image version on the NAS
             /usr/local/bin/docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }}

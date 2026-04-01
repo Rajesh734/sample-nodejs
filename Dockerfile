@@ -5,6 +5,9 @@ WORKDIR /app
 # Install tini for proper signal handling
 RUN apk add --no-cache tini
 
+# For Alpine-based images:
+RUN apk add --no-cache openssl
+
 # Copy package files
 COPY package*.json ./
 
