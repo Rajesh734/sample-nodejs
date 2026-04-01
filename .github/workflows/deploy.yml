@@ -32,17 +32,13 @@ jobs:
           echo "IMAGE_NAME_LC=$(echo ${{ env.IMAGE_NAME }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
           # 2. Map the correct Secret names (SYNOLOGY_SSH_PRIVATE_KEY)
+          echo "NAS_HOST=${{ secrets.NAS_HOST }}" >> $GITHUB_ENV
+          echo "NAS_USER=${{ secrets.NAS_USER }}" >> $GITHUB_ENV
+          echo "NAS_SSH_KEY=${{ secrets.SYNOLOGY_SSH_PRIVATE_KEY }}" >> $GITHUB_ENV
           if [ "${{ github.event.inputs.environment }}" = "production" ]; then
-            echo "NAS_HOST=${{ secrets.NAS_HOST }}" >> $GITHUB_ENV
-            echo "NAS_USER=${{ secrets.NAS_USER }}" >> $GITHUB_ENV
-            echo "NAS_SSH_KEY=${{ secrets.SYNOLOGY_SSH_PRIVATE_KEY }}" >> $GITHUB_ENV
             echo "DEPLOY_PATH=/volume1/docker/moi" >> $GITHUB_ENV
           else
-            # Assuming your staging keys follow the same pattern or are global
-            echo "NAS_HOST=${{ secrets.NAS_HOST_STAGING }}" >> $GITHUB_ENV
-            echo "NAS_USER=${{ secrets.NAS_USER_STAGING }}" >> $GITHUB_ENV
-            echo "NAS_SSH_KEY=${{ secrets.SYNOLOGY_SSH_PRIVATE_KEY_STAGING }}" >> $GITHUB_ENV
-            echo "DEPLOY_PATH=/volume1/docker/moi-staging" >> $GITHUB_ENV
+            echo "DEPLOY_PATH=/volume1/docker/moi-non-prod" >> $GITHUB_ENV
           fi
 
       - name: Setup SSH
