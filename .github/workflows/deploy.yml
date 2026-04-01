@@ -92,30 +92,29 @@ jobs:
             -o UserKnownHostsFile=/dev/null \
             ${{ env.NAS_USER }}@${{ env.NAS_HOST }} \
             "ls -d /volume*/platform/docker/non-prod/moi 2>/dev/null || echo 'Path not found on any volume'"
-            
+
       - name: Deploy services
         run: |
           ssh -p ${{ env.NAS_PORT }} -i ~/.ssh/id_rsa \
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
             ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
-            cd ${{ env.DEPLOY_PATH }}
-            # ... rest of your script ...
-          EOF
-            cd ${{ env.DEPLOY_PATH }}
+            # 1. Force the target directory into a variable inside the remote shell
+            TARGET_DIR="/volume1/platform/docker/non-prod/moi"
             
-            # Backup
-            cp docker-compose.yml docker-compose.yml.backup
+            echo "Moving to: $TARGET_DIR"
+            cd "$TARGET_DIR" || { echo "Failed to enter $TARGET_DIR"; exit 1; }
             
-            # Stop current services
+            # 2. Backup
+            cp docker-compose.yml docker-compose.yml.backup 2>/dev/null || true
+            
+            # 3. Deploy
             /usr/local/bin/docker-compose down || true
             
-            # Update image using lowercase variable and the selected tag
+            # Note: We use the full registry/image path here to avoid variable issues
             sed -i "s|image: ghcr.io.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }}|" docker-compose.yml
             
-            # Start
             /usr/local/bin/docker-compose up -d
-            sleep 10
           EOF
 
       - name: Verify health check
