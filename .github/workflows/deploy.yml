@@ -52,7 +52,14 @@ jobs:
           echo "${{ secrets.SYNOLOGY_SSH_PRIVATE_KEY }}" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
-          # 4. Set Path based on environment
+          # 4. Add Database Secrets
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> $GITHUB_ENV
+          echo "DB_PORT=${{ secrets.DB_PORT }}" >> $GITHUB_ENV
+          echo "DB_USER=${{ secrets.DB_USER }}" >> $GITHUB_ENV
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> $GITHUB_ENV
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> $GITHUB_ENV
+
+          # 5. Set Path based on environment
           if [ "${{ github.event.inputs.environment }}" = "production" ]; then
             echo "DEPLOY_PATH=/volume1/platform/docker/prod/moi" >> $GITHUB_ENV
           else
@@ -100,7 +107,7 @@ jobs:
             -o UserKnownHostsFile=/dev/null \
             ${{ env.NAS_USER }}@${{ env.NAS_HOST }} \
             "cat > ${{ env.DEPLOY_PATH }}/docker-compose.yml"
-            
+
       - name: Deploy services
         run: |
           ssh -p ${{ env.NAS_PORT }} -i ~/.ssh/id_rsa \

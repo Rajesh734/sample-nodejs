@@ -1,15 +1,17 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15-alpine
+  backend:
+    image: ghcr.io/rajesh734/sample-nodejs/moi-app:latest
+    container_name: moi-backend-non-prod
     restart: always
     environment:
-      POSTGRES_USER: moi_user
-      POSTGRES_PASSWORD: moi_password
-      POSTGRES_DB: moi_db
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # These will be filled by the 'sed' command in your workflow
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
     ports:
       - "5432:5432"
     healthcheck:
