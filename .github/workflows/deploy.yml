@@ -59,6 +59,11 @@ jobs:
             echo "DEPLOY_PATH=/volume1/docker/moi-non-prod" >> $GITHUB_ENV
           fi
 
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
