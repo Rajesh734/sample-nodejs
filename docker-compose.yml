@@ -7,30 +7,7 @@ services:
     restart: always
     environment:
       # These will be filled by the 'sed' command in your workflow
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U moi_user -d moi_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  backend:
-    # Use pre-built image if available, otherwise build from Dockerfile
-    image: ${DOCKER_IMAGE:-ghcr.io/rajesh734/sample-nodejs/moi-app:latest}
-    # Uncomment 'build' below for local development
-    # build: .
-    restart: always
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: postgres://moi_user:moi_password@postgres:5432/moi_db
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
       PORT: 3000
       NODE_ENV: ${NODE_ENV:-production}
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
@@ -53,11 +30,4 @@ services:
       retries: 3
       start_period: 40s
 
-volumes:
-  postgres_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${POSTGRES_DATA_PATH:-/volume1/docker/moi/postgres}
 
