@@ -45,6 +45,7 @@ jobs:
           else
             echo "DEPLOY_PATH=/volume1/docker/moi-non-prod" >> $GITHUB_ENV
           fi
+          echo "EOF" >> $GITHUB_ENV
 
       - name: Setup SSH
         run: |
