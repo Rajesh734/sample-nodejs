@@ -36,16 +36,27 @@ jobs:
           # 1. Fix the lowercase image name issue
           echo "IMAGE_NAME_LC=$(echo ${{ env.IMAGE_NAME }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-          # 2. Map the correct Secret names (SYNOLOGY_SSH_PRIVATE_KEY)
+          # 2. Set the Image Tag (Version)
+          # Use input if provided, otherwise default to latest
+          VERSION="${{ github.event.inputs.image_version }}"
+          if [ -z "$VERSION" ]; then VERSION="latest"; fi
+          echo "IMAGE_TAG=$VERSION" >> $GITHUB_ENV
+
+          # 3. Map Secrets (Handle multi-line SSH Key correctly)
           echo "NAS_HOST=${{ secrets.NAS_HOST }}" >> $GITHUB_ENV
           echo "NAS_USER=${{ secrets.NAS_USER }}" >> $GITHUB_ENV
-          echo "NAS_SSH_KEY=${{ secrets.SYNOLOGY_SSH_PRIVATE_KEY }}" >> $GITHUB_ENV
+          
+          # This is the special syntax for multi-line variables
+          echo "NAS_SSH_KEY<<EOF" >> $GITHUB_ENV
+          echo "${{ secrets.SYNOLOGY_SSH_PRIVATE_KEY }}" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+          # 4. Set Path based on environment
           if [ "${{ github.event.inputs.environment }}" = "production" ]; then
             echo "DEPLOY_PATH=/volume1/docker/moi" >> $GITHUB_ENV
           else
             echo "DEPLOY_PATH=/volume1/docker/moi-non-prod" >> $GITHUB_ENV
           fi
-          echo "EOF" >> $GITHUB_ENV
 
       - name: Setup SSH
         run: |
