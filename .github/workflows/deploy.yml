@@ -99,29 +99,24 @@ jobs:
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
             docker-compose.yml ${{ env.NAS_USER }}@${{ env.NAS_HOST }}:${{ env.DEPLOY_PATH }}/docker-compose.yml
-            
+
       - name: Deploy services
         run: |
           ssh -p ${{ env.NAS_PORT }} -i ~/.ssh/id_rsa \
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
             ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
-            # 1. Force the target directory into a variable inside the remote shell
-            TARGET_DIR="/volume1/platform/docker/non-prod/moi"
+            cd ${{ env.DEPLOY_PATH }}
             
-            echo "Moving to: $TARGET_DIR"
-            cd "$TARGET_DIR" || { echo "Failed to enter $TARGET_DIR"; exit 1; }
-            
-            # 2. Backup
-            cp docker-compose.yml docker-compose.yml.backup 2>/dev/null || true
-            
-            # 3. Deploy
-            /usr/local/bin/docker-compose down || true
-            
-            # Note: We use the full registry/image path here to avoid variable issues
+            # 1. Update the image tag in the file we just SCP'd
+            # We use the variable passed from the GitHub Env
             sed -i "s|image: ghcr.io.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }}|" docker-compose.yml
             
-            /usr/local/bin/docker-compose up -d
+            # 2. Pull the specific image version on the NAS
+            /usr/local/bin/docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }}
+            
+            # 3. Restart the container
+            /usr/local/bin/docker-compose up -d --remove-orphans
           EOF
 
       - name: Verify health check
