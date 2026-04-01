@@ -93,6 +93,13 @@ jobs:
             ${{ env.NAS_USER }}@${{ env.NAS_HOST }} \
             "ls -d /volume*/platform/docker/non-prod/moi 2>/dev/null || echo 'Path not found on any volume'"
 
+      - name: Copy docker-compose to NAS
+        run: |
+          scp -P ${{ env.NAS_PORT }} -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            docker-compose.yml ${{ env.NAS_USER }}@${{ env.NAS_HOST }}:${{ env.DEPLOY_PATH }}/docker-compose.yml
+            
       - name: Deploy services
         run: |
           ssh -p ${{ env.NAS_PORT }} -i ~/.ssh/id_rsa \
