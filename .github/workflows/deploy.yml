@@ -67,10 +67,15 @@ jobs:
           # Add the -p flag here
           ssh-keyscan -p ${{ env.NAS_PORT }} -H ${{ env.NAS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
+      - name: Network Diagnostic
+        run: |
+          echo "Checking connectivity to ${{ env.NAS_HOST }} on port ${{ env.NAS_PORT }}..."
+          nc -zv -w 5 ${{ env.NAS_HOST }} ${{ env.NAS_PORT }} || echo "Port is CLOSED or UNREACHABLE"
+          
       - name: Pull latest image
         run: |
-          # Note: Using IMAGE_NAME_LC (lowercase) and IMAGE_TAG (version)
-          ssh -p ${{ env.NAS_PORT }} -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} \
+          # Adding -vvv for maximum debug output
+          ssh -vvv -p ${{ env.NAS_PORT }} -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} \
             "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }}"
 
       - name: Deploy services
