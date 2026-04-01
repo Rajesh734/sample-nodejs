@@ -10,8 +10,13 @@ on:
         type: choice
         options:
           - production
-          - staging
-
+          - non-prod
+      image_version:
+        description: 'Image version/tag (e.g., main-712eb90). Defaults to latest if empty.'
+        required: false
+        default: 'latest'
+        type: string
+        
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/moi-app
