@@ -9,8 +9,8 @@ on:
         default: 'production'
         type: choice
         options:
-          - production
           - non-prod
+          - production
       image_version:
         description: 'Image version/tag (e.g., main-712eb90). Defaults to latest if empty.'
         required: false
@@ -83,7 +83,7 @@ jobs:
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
             ${{ env.NAS_USER }}@${{ env.NAS_HOST }} \
-            "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }}"
+            "/usr/local/bin/docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }}"
 
       - name: Deploy services
         run: |
@@ -100,13 +100,13 @@ jobs:
             cp docker-compose.yml docker-compose.yml.backup
             
             # Stop current services
-            docker-compose down || true
+            /usr/local/bin/docker-compose down || true
             
             # Update image using lowercase variable and the selected tag
             sed -i "s|image: ghcr.io.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }}|" docker-compose.yml
             
             # Start
-            docker-compose up -d
+            /usr/local/bin/docker-compose up -d
             sleep 10
           EOF
 
