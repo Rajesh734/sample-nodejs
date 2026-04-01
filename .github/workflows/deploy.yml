@@ -54,9 +54,9 @@ jobs:
 
           # 4. Set Path based on environment
           if [ "${{ github.event.inputs.environment }}" = "production" ]; then
-            echo "DEPLOY_PATH=/platform/docker/prod/moi" >> $GITHUB_ENV
+            echo "DEPLOY_PATH=/volume1/platform/docker/prod/moi" >> $GITHUB_ENV
           else
-            echo "DEPLOY_PATH=/platform/docker/non-prod/moi" >> $GITHUB_ENV
+            echo "DEPLOY_PATH=/volume1/platform/docker/non-prod/moi" >> $GITHUB_ENV
           fi
 
       - name: Connect to Tailscale
