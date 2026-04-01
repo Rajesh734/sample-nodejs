@@ -79,13 +79,21 @@ jobs:
           
       - name: Pull latest image
         run: |
-          # Adding -vvv for maximum debug output
-          ssh -vvv -p ${{ env.NAS_PORT }} -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} \
+          ssh -p ${{ env.NAS_PORT }} -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            ${{ env.NAS_USER }}@${{ env.NAS_HOST }} \
             "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }}"
 
       - name: Deploy services
         run: |
-          ssh -p ${{ env.NAS_PORT }} -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
+          ssh -p ${{ env.NAS_PORT }} -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
+            cd ${{ env.DEPLOY_PATH }}
+            # ... rest of your script ...
+          EOF
             cd ${{ env.DEPLOY_PATH }}
             
             # Backup
@@ -104,7 +112,7 @@ jobs:
 
       - name: Verify health check
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
+          ssh -i ~/.ssh/id_rsa -p ${{ env.NAS_PORT }} ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
             # Give services time to start
             sleep 5
             
@@ -125,7 +133,7 @@ jobs:
       - name: Check logs
         if: failure()
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
+          ssh -i ~/.ssh/id_rsa -p ${{ env.NAS_PORT }} ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
             cd ${{ env.DEPLOY_PATH }}
             echo "=== Docker Compose Status ==="
             docker-compose ps
@@ -140,7 +148,7 @@ jobs:
       - name: Rollback on failure
         if: failure()
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
+          ssh -i ~/.ssh/id_rsa -p ${{ env.NAS_PORT }} ${{ env.NAS_USER }}@${{ env.NAS_HOST }} << 'EOF'
             cd ${{ env.DEPLOY_PATH }}
             echo "Rolling back to previous version..."
             docker-compose down || true
